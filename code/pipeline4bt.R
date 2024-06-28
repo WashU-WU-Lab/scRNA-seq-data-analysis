@@ -91,7 +91,7 @@ sub_data <- FindVariableFeatures(sub_data, selection.method = "vst",
                                     nfeatures = 2000, layer = "counts")
 sub_data <- ScaleData(sub_data, features = VariableFeatures(sub_data))
 sub_data <- SCTransform(sub_data, vars.to.regress = "percent.mt")
-sub_data <- RunPCA(sub_data, assay = "SCT", npcs = 50)
+sub_data <- RunPCA(sub_data, assay = "SCT", npcs = 50, seed.use = NULL)
 DefaultAssay(sub_data) <- "SCT"
 ElbowPlot(sub_data, ndims = 50)
 sub_data <- RunUMAP(sub_data, dims = 1:n_pc, reduction = "pca")
@@ -124,7 +124,7 @@ if(integration_method == ""){
   sub_data <- IntegrateData(anchorset = integ_anchors, 
                                normalization.method = "SCT")
   reduction <- "pca"
-  sub_data <- RunPCA(object = sub_data)
+  sub_data <- RunPCA(sub_data, assay = "SCT", npcs = 50, seed.use = NULL)
   sub_data <- RunUMAP(sub_data, reduction = reduction, dims = 1:n_pc)
   Idents(sub_data) <- "hash.ID"
   DimPlot(sub_data)
@@ -132,7 +132,7 @@ if(integration_method == ""){
 sub_data <- FindNeighbors(sub_data, reduction = reduction, dims = 1:n_pc)
 for(r in resolution){
   sub_data <- FindClusters(sub_data, resolution = r)
-  DimPlot(sub_data, label = TRUE)
+  print(DimPlot(sub_data, label = TRUE))
   if(compute_marker){
     markers <- FindAllMarkers(sub_data, only.pos = TRUE, min.pct = 0.25, 
                               logfc.threshold = 0.25)
