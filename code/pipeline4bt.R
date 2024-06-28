@@ -124,7 +124,7 @@ if(integration_method == ""){
   sub_data <- IntegrateData(anchorset = integ_anchors, 
                                normalization.method = "SCT")
   reduction <- "pca"
-  sub_data <- RunPCA(sub_data, assay = "SCT", npcs = 50, seed.use = NULL)
+  sub_data <- RunPCA(sub_data, npcs = 50, seed.use = NULL)
   sub_data <- RunUMAP(sub_data, reduction = reduction, dims = 1:n_pc)
   Idents(sub_data) <- "hash.ID"
   DimPlot(sub_data)
