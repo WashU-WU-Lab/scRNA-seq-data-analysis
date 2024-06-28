@@ -18,33 +18,33 @@ nCount_RNA_min <- 500  # For cell filtering
 mt_ratio_max <- 20  # For cell filtering
 GenesPerUMI_min <- 0.75  # For cell filtering
 ncell_min <- 10  # For gene filtering
-n_pc <- 30  # PC component num used in KNN & UMAP
+n_pc <- 15  # PC component num used in KNN & UMAP
 integration_method <- "Seurat"  # "Harmony" for harmony, 
                                 # "Seurat" for integration
                                 # "" for no integration
-resolution <- 0.8  # For clustering
+resolution <- c(0.4, 0.6, 0.8, 1.0, 1.4)  # For clustering
 gene_list <- c("Thy1", "Cd34")  # Check gene expression
 compute_marker <- FALSE  # Whether to compute marker genes for clusters
-save_prefix <- "../processed/sc_bt_BHT6&7_Seurat_npc_30_rsln_0.3"
+save_prefix <- "../processed/sc_bt_BHT6&7_seurat_npc_15"
 seed <- 2024  # Random seed
 
 
 # Read data & pre-computation
 set.seed(seed)
 # setwd(dirname(rstudioapi::getActiveDocumentContext()$path))  # Set work dir
-setwd <- workdir
+setwd(workdir)
 data <- readRDS(datadir)
 data[["percent.mt"]] <- PercentageFeatureSet(data, pattern = "^mt-")
 data$log10GenesPerUMI <- log10(data$nFeature_RNA) / log10(data$nCount_RNA) # Novelty score
 
 
 # For BHT 6 & 7
-sub_data_67 <- subset(data, subset = hash.ID %in% selected)
+sub_data <- subset(data, subset = hash.ID %in% selected)
 ## Filtering
 ### Cell-level filtering
-VlnPlot(sub_data_67, features = c("nFeature_RNA", "nCount_RNA", 
+VlnPlot(sub_data, features = c("nFeature_RNA", "nCount_RNA", 
                                   "percent.mt", "log10GenesPerUMI"), ncol = 4)
-metadata <- sub_data_67@meta.data
+metadata <- sub_data@meta.data
 metadata %>% 
   ggplot(aes(x=nFeature_RNA, olor=hash.ID, fill= hash.ID)) + 
   geom_density(alpha = 0.2) + 
@@ -70,49 +70,49 @@ metadata %>%
   geom_density(alpha = 0.2) +
   theme_classic() +
   geom_vline(xintercept = GenesPerUMI_min)
-print(paste("Original cell num:", ncol(sub_data_67)))
-sub_data_67 <- subset(sub_data_67, subset = nFeature_RNA >= nFeature_RNA_min & 
+print(paste("Original cell num:", ncol(sub_data)))
+sub_data <- subset(sub_data, subset = nFeature_RNA >= nFeature_RNA_min & 
                                             nCount_RNA >= nCount_RNA_min &
                                             percent.mt <= mt_ratio_max &
                                             log10GenesPerUMI >= GenesPerUMI_min)
-print(paste("Cell num after filtering:", ncol(sub_data_67)))
+print(paste("Cell num after filtering:", ncol(sub_data)))
 ### Gene-level filtering
-counts <- GetAssayData(object = sub_data_67, layer = "counts")
+counts <- GetAssayData(object = sub_data, layer = "counts")
 nonzero <- counts > 0
 keep_genes <- Matrix::rowSums(nonzero) >= ncell_min
-print(paste("Original gene num:", nrow(sub_data_67)))
-sub_data_67 <- CreateSeuratObject(counts[keep_genes, ],
-                                  meta.data = sub_data_67@meta.data)
-print(paste("Cell num after filtering:", nrow(sub_data_67)))
+print(paste("Original gene num:", nrow(sub_data)))
+sub_data <- CreateSeuratObject(counts[keep_genes, ],
+                                  meta.data = sub_data@meta.data)
+print(paste("Cell num after filtering:", nrow(sub_data)))
 ## Preprocessing
-sub_data_67 <- NormalizeData(sub_data_67, normalization.method = "LogNormalize", 
+sub_data <- NormalizeData(sub_data, normalization.method = "LogNormalize", 
                              scale.factor = 10000, layer = "counts")
-sub_data_67 <- FindVariableFeatures(sub_data_67, selection.method = "vst", 
+sub_data <- FindVariableFeatures(sub_data, selection.method = "vst", 
                                     nfeatures = 2000, layer = "counts")
-sub_data_67 <- ScaleData(sub_data_67, features = VariableFeatures(sub_data_67))
-sub_data_67 <- SCTransform(sub_data_67, vars.to.regress = "percent.mt")
-sub_data_67 <- RunPCA(sub_data_67, assay = "SCT", npcs = 50)
-DefaultAssay(sub_data_67) <- "SCT"
-ElbowPlot(sub_data_67, ndims = 50)
-sub_data_67 <- RunUMAP(sub_data_67, dims = 1:n_pc, reduction = "pca")
-Idents(sub_data_67) <- "hash.ID"
-DimPlot(sub_data_67)
+sub_data <- ScaleData(sub_data, features = VariableFeatures(sub_data))
+sub_data <- SCTransform(sub_data, vars.to.regress = "percent.mt")
+sub_data <- RunPCA(sub_data, assay = "SCT", npcs = 50)
+DefaultAssay(sub_data) <- "SCT"
+ElbowPlot(sub_data, ndims = 50)
+sub_data <- RunUMAP(sub_data, dims = 1:n_pc, reduction = "pca")
+Idents(sub_data) <- "hash.ID"
+DimPlot(sub_data)
 # Integration
 if(integration_method == ""){
   reduction <- "pca"
 }else if(integration_method == "Harmony"){
-  sub_data_67 <- RunHarmony(sub_data_67, group.by.vars = "hash.ID", 
+  sub_data <- RunHarmony(sub_data, group.by.vars = "hash.ID", 
                             reduction = "pca", assay.use = "SCT", 
                             reduction.save = "harmony")
   reduction <- "harmony"
-  sub_data_67 <- RunUMAP(sub_data_67, reduction = reduction, dims = 1:n_pc)
-  Idents(sub_data_67) <- "hash.ID"
-  DimPlot(sub_data_67)
+  sub_data <- RunUMAP(sub_data, reduction = reduction, dims = 1:n_pc)
+  Idents(sub_data) <- "hash.ID"
+  DimPlot(sub_data)
 }else if(integration_method == "Seurat"){
   seurat_obj_list <- c()
   for(id in selected){
     seurat_obj_list <- c(seurat_obj_list, 
-                         subset(sub_data_67, subset = hash.ID == id))
+                         subset(sub_data, subset = hash.ID == id))
   }
   integ_features <- SelectIntegrationFeatures(object.list = seurat_obj_list, 
                                               nfeatures = 3000) 
@@ -121,30 +121,32 @@ if(integration_method == ""){
   integ_anchors <- FindIntegrationAnchors(object.list = seurat_obj_list, 
                                           normalization.method = "SCT", 
                                           anchor.features = integ_features)
-  sub_data_67 <- IntegrateData(anchorset = integ_anchors, 
+  sub_data <- IntegrateData(anchorset = integ_anchors, 
                                normalization.method = "SCT")
   reduction <- "pca"
-  sub_data_67 <- RunPCA(object = sub_data_67)
-  sub_data_67 <- RunUMAP(sub_data_67, reduction = reduction, dims = 1:n_pc)
-  Idents(sub_data_67) <- "hash.ID"
-  DimPlot(sub_data_67)
+  sub_data <- RunPCA(object = sub_data)
+  sub_data <- RunUMAP(sub_data, reduction = reduction, dims = 1:n_pc)
+  Idents(sub_data) <- "hash.ID"
+  DimPlot(sub_data)
 }
-sub_data_67 <- FindNeighbors(sub_data_67, reduction = reduction, dims = 1:n_pc)
-sub_data_67 <- FindClusters(sub_data_67, resolution = resolution)
-DimPlot(sub_data_67, label = TRUE)
-DefaultAssay(sub_data_67) <- "RNA"
+sub_data <- FindNeighbors(sub_data, reduction = reduction, dims = 1:n_pc)
+for(r in resolution){
+  sub_data <- FindClusters(sub_data, resolution = r)
+  DimPlot(sub_data, label = TRUE)
+  if(compute_marker){
+    markers <- FindAllMarkers(sub_data, only.pos = TRUE, min.pct = 0.25, 
+                              logfc.threshold = 0.25)
+    write.csv(markers, paste(save_prefix, "_rsln_", r, ".csv", sep=""))
+  }
+}
+DefaultAssay(sub_data) <- "RNA"
 for(gene in gene_list){
-  print(FeaturePlot(sub_data_67, gene))
-  print(VlnPlot(sub_data_67, gene, layer="data"))
-  print(plot_density(sub_data_67, gene, reduction = "umap"))
+  print(FeaturePlot(sub_data, gene))
+  print(VlnPlot(sub_data, gene, layer="data"))
+  print(plot_density(sub_data, gene, reduction = "umap"))
 }
 if(length(gene_list) > 1){
-  plot_density(sub_data_67, features = gene_list, joint = TRUE, 
+  plot_density(sub_data, features = gene_list, joint = TRUE, 
                reduction = "umap", combine = FALSE)[length(gene_list) + 1]
 }
-if(compute_marker){
-  markers <- FindAllMarkers(sub_data_67, only.pos = TRUE, min.pct = 0.25, 
-                            logfc.threshold = 0.25)
-  write.csv(markers, paste(save_prefix, ".csv", sep=""))
-}
-saveRDS(sub_data_67, paste(save_prefix, ".rds", sep=""))
+saveRDS(sub_data, paste(save_prefix, ".rds", sep=""))
