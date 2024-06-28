@@ -10,7 +10,7 @@ library(harmony)
 
 
 # Parameters
-workdir <- ""
+workdir <- "C:/Users/Federico/Desktop/WU_Lab/scRNA-seq-data-analysis/code/"
 datadir <- "../data/sc_bt.rds"
 selected <- c("BHT6", "BHT7")  # For cell selection
 nFeature_RNA_min <- 250  # For cell filtering
@@ -19,13 +19,13 @@ mt_ratio_max <- 20  # For cell filtering
 GenesPerUMI_min <- 0.75  # For cell filtering
 ncell_min <- 10  # For gene filtering
 n_pc <- 30  # PC component num used in KNN & UMAP
-integration_method <- "Harmony"  # "Harmony" for harmony, 
-                                 # "Seurat" for integration
-                                 # "" for no integration
+integration_method <- "Seurat"  # "Harmony" for harmony, 
+                                # "Seurat" for integration
+                                # "" for no integration
 resolution <- 0.8  # For clustering
 gene_list <- c("Thy1", "Cd34")  # Check gene expression
-compute_marker <- FALSE  # Whether computing marker genes for clusters
-save_prefix <- "../processed/sc_bt_BHT6&7_npc_30_rsln_0.3"
+compute_marker <- FALSE  # Whether to compute marker genes for clusters
+save_prefix <- "../processed/sc_bt_BHT6&7_Seurat_npc_30_rsln_0.3"
 seed <- 2024  # Random seed
 
 
@@ -134,9 +134,9 @@ sub_data_67 <- FindClusters(sub_data_67, resolution = resolution)
 DimPlot(sub_data_67, label = TRUE)
 DefaultAssay(sub_data_67) <- "RNA"
 for(gene in gene_list){
-  FeaturePlot(sub_data_67, gene)
-  VlnPlot(sub_data_67, gene, layer="data")
-  plot_density(sub_data_67, gene, reduction = "umap")
+  print(FeaturePlot(sub_data_67, gene))
+  print(VlnPlot(sub_data_67, gene, layer="data"))
+  print(plot_density(sub_data_67, gene, reduction = "umap"))
 }
 if(length(gene_list) > 1){
   plot_density(sub_data_67, features = gene_list, joint = TRUE, 
