@@ -94,7 +94,7 @@ sub_data <- SCTransform(sub_data, vars.to.regress = "percent.mt")
 sub_data <- RunPCA(sub_data, assay = "SCT", npcs = 50, seed.use = NULL)
 DefaultAssay(sub_data) <- "SCT"
 ElbowPlot(sub_data, ndims = 50)
-sub_data <- RunUMAP(sub_data, dims = 1:n_pc, reduction = "pca")
+sub_data <- RunUMAP(sub_data, dims = 1:n_pc, reduction = "pca", seed.use = NULL)
 Idents(sub_data) <- "hash.ID"
 DimPlot(sub_data)
 # Integration
@@ -105,7 +105,8 @@ if(integration_method == ""){
                             reduction = "pca", assay.use = "SCT", 
                             reduction.save = "harmony")
   reduction <- "harmony"
-  sub_data <- RunUMAP(sub_data, reduction = reduction, dims = 1:n_pc)
+  sub_data <- RunUMAP(sub_data, reduction = reduction, dims = 1:n_pc, 
+                      seed.use = NULL)
   Idents(sub_data) <- "hash.ID"
   DimPlot(sub_data)
 }else if(integration_method == "Seurat"){
@@ -125,7 +126,8 @@ if(integration_method == ""){
                                normalization.method = "SCT")
   reduction <- "pca"
   sub_data <- RunPCA(sub_data, npcs = 50, seed.use = NULL)
-  sub_data <- RunUMAP(sub_data, reduction = reduction, dims = 1:n_pc)
+  sub_data <- RunUMAP(sub_data, reduction = reduction, dims = 1:n_pc, 
+                      seed.use = NULL)
   Idents(sub_data) <- "hash.ID"
   DimPlot(sub_data)
 }
