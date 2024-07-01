@@ -14,6 +14,6 @@ III The results can be found in ./results/.
 The workflow of the pipeline is shown as follows:
 </p>
 
-<p float="center">
+<p float="centre">
   <img src="figures/Workflow.png" width="600" height="500"/>
 </p>
