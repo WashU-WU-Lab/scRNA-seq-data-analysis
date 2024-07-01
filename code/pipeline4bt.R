@@ -10,22 +10,26 @@ library(harmony)
 
 
 # Parameters
-workdir <- "C:/Users/Federico/Desktop/WU_Lab/scRNA-seq-data-analysis/code/"
-datadir <- "../data/sc_bt.rds"
+workdir <- "C:/Users/Federico/Desktop/WU_Lab/scRNA-seq-data-analysis/code/"  # current work directory
+datadir <- "../data/sc_bt.rds"  # .rds data path
+cell_cycle_genes <- "../data/cell_cycle/Mus_musculus.rda"  # cell-cycle gene path
 selected <- c("BHT6", "BHT7")  # For cell selection
 nFeature_RNA_min <- 250  # For cell filtering
 nCount_RNA_min <- 500  # For cell filtering
 mt_ratio_max <- 20  # For cell filtering
 GenesPerUMI_min <- 0.75  # For cell filtering
-ncell_min <- 10  # For gene filtering
-n_pc <- 15  # PC component num used in KNN & UMAP
+ncell_min <- 3  # For gene filtering
+n_pc <- 20  # PC component num used in KNN & UMAP
+regress_out <- c("percent.mt",  # Unwanted variations for regressing out
+                 "S.Score",     # S.Score & G2M.Score are about cell cycle
+                 "G2M.Score")  
 integration_method <- "Seurat"  # "Harmony" for harmony, 
                                 # "Seurat" for integration
                                 # "" for no integration
 resolution <- c(0.4, 0.6, 0.8, 1.0, 1.4)  # For clustering
 gene_list <- c("Thy1", "Cd34")  # Check gene expression
 compute_marker <- FALSE  # Whether to compute marker genes for clusters
-save_prefix <- "../processed/sc_bt_BHT6&7_seurat_npc_15"
+save_prefix <- "sc_bt_BHT6&7_mt&cc_seurat_npc_20"  # save file prefix (like [prefix].rds)
 seed <- 2024  # Random seed
 
 
@@ -38,7 +42,7 @@ data[["percent.mt"]] <- PercentageFeatureSet(data, pattern = "^mt-")
 data$log10GenesPerUMI <- log10(data$nFeature_RNA) / log10(data$nCount_RNA) # Novelty score
 
 
-# For BHT 6 & 7
+# Selecting samples
 sub_data <- subset(data, subset = hash.ID %in% selected)
 ## Filtering
 ### Cell-level filtering
@@ -89,8 +93,37 @@ sub_data <- NormalizeData(sub_data, normalization.method = "LogNormalize",
                              scale.factor = 10000, layer = "counts")
 sub_data <- FindVariableFeatures(sub_data, selection.method = "vst", 
                                     nfeatures = 2000, layer = "counts")
-sub_data <- ScaleData(sub_data, features = VariableFeatures(sub_data))
-sub_data <- SCTransform(sub_data, vars.to.regress = "percent.mt")
+sub_data <- ScaleData(sub_data)
+
+### Check whether regress out the cell cycle
+load(cell_cycle_genes)
+sub_data <- CellCycleScoring(sub_data, 
+                             g2m.features = g2m_genes, 
+                             s.features = s_genes)
+sub_data <- RunPCA(sub_data, seed.use = NULL)
+DimPlot(sub_data,
+        reduction = "pca",
+        group.by= "Phase")
+DimPlot(sub_data,
+        reduction = "pca",
+        group.by= "Phase",
+        split.by= "Phase")
+
+### Check whether regress out the mt gene ratio
+sub_data@meta.data$cls.mt <- cut(sub_data@meta.data$percent.mt, 
+                                 breaks=c(-Inf, mt_ratio_max * 0.25, 
+                                          mt_ratio_max * 0.5, 
+                                          mt_ratio_max * 0.75, Inf), 
+                                 labels=c("Low","Medium","Medium high", "High"))
+DimPlot(sub_data,
+        reduction = "pca",
+        group.by = "cls.mt")
+DimPlot(sub_data,
+        reduction = "pca",
+        group.by = "cls.mt",
+        split.by = "cls.mt")
+
+sub_data <- SCTransform(sub_data, vars.to.regress = regress_out)
 sub_data <- RunPCA(sub_data, assay = "SCT", npcs = 50, seed.use = NULL)
 DefaultAssay(sub_data) <- "SCT"
 ElbowPlot(sub_data, ndims = 50)
@@ -112,8 +145,13 @@ if(integration_method == ""){
 }else if(integration_method == "Seurat"){
   seurat_obj_list <- c()
   for(id in selected){
-    seurat_obj_list <- c(seurat_obj_list, 
-                         subset(sub_data, subset = hash.ID == id))
+    temp_data <- subset(sub_data, subset = hash.ID == id)
+    temp_data <- NormalizeData(temp_data, normalization.method = "LogNormalize", 
+                              scale.factor = 10000, layer = "counts")
+    temp_data <- FindVariableFeatures(temp_data, selection.method = "vst", 
+                                     nfeatures = 2000, layer = "counts")
+    temp_data <- SCTransform(temp_data, vars.to.regress = regress_out)
+    seurat_obj_list <- c(seurat_obj_list, temp_data)
   }
   integ_features <- SelectIntegrationFeatures(object.list = seurat_obj_list, 
                                               nfeatures = 3000) 
@@ -124,8 +162,9 @@ if(integration_method == ""){
                                           anchor.features = integ_features)
   sub_data <- IntegrateData(anchorset = integ_anchors, 
                                normalization.method = "SCT")
-  reduction <- "pca"
+  sub_data <- ScaleData(sub_data)
   sub_data <- RunPCA(sub_data, npcs = 50, seed.use = NULL)
+  reduction <- "pca"
   sub_data <- RunUMAP(sub_data, reduction = reduction, dims = 1:n_pc, 
                       seed.use = NULL)
   Idents(sub_data) <- "hash.ID"
@@ -138,7 +177,8 @@ for(r in resolution){
   if(compute_marker){
     markers <- FindAllMarkers(sub_data, only.pos = TRUE, min.pct = 0.25, 
                               logfc.threshold = 0.25)
-    write.csv(markers, paste(save_prefix, "_rsln_", r, ".csv", sep=""))
+    write.csv(markers, paste("../results/markers/", save_prefix, 
+                             "_rsln_", r, ".csv", sep=""))
   }
 }
 DefaultAssay(sub_data) <- "RNA"
@@ -151,4 +191,4 @@ if(length(gene_list) > 1){
   plot_density(sub_data, features = gene_list, joint = TRUE, 
                reduction = "umap", combine = FALSE)[length(gene_list) + 1]
 }
-saveRDS(sub_data, paste(save_prefix, ".rds", sep=""))
+saveRDS(sub_data, paste("../results/rds/", save_prefix, ".rds", sep=""))
