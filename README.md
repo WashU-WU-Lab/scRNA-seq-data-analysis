@@ -1,5 +1,6 @@
 # Building scRNA-seq Data Analysis Pipeline.
 
+<p float="left">
 Pipeline steps:
 
 I   First, set parameters in the ./code/pipeline4bt.R.
@@ -7,10 +8,12 @@ I   First, set parameters in the ./code/pipeline4bt.R.
 II  Then, set and run ./code/render4html.R to obtain the results.
 
 III The results can be found in ./results/.
-
-
-The workflow of the pipeline is shown as follows:
+</p>
 
 <p float="left">
-  <img src="figures/Workflow.png" width="600" height="350"/>
+The workflow of the pipeline is shown as follows:
+</p>
+
+<p float="center">
+  <img src="figures/Workflow.png" width="600" height="800"/>
 </p>
