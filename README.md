@@ -15,5 +15,5 @@ The workflow of the pipeline is shown as follows:
 </p>
 
 <p float="center">
-  <img src="figures/Workflow.png" width="600" height="800"/>
+  <img src="figures/Workflow.png" width="600" height="500"/>
 </p>
